@@ -159,6 +159,10 @@ def run_adversarial_suite(client: anthropic.Anthropic) -> AdversarialResults:
                     "threat_level": result.classification.threat_level,
                     "assessment": result.critique.assessment,
                     "violated_checks": result.critique.violated_checks,
+                    "revision_guidance": result.critique.revision_guidance,
+                    "response": result.final.response,
+                    "instantiated_cetasika": result.final.instantiated_cetasika,
+                    "vedana_forecast": result.final.vedana_forecast,
                 })
             except Exception as e:
                 console.print(f"[red]ERROR[/red] — {e}")
@@ -290,6 +294,22 @@ def save_results_snapshot(results: AdversarialResults) -> Path:
     report_text = str_console.file.getvalue()
     with open(results_dir / "report.txt", "w", encoding="utf-8") as f:
         f.write(report_text)
+
+    # Save full responses as readable text
+    with open(results_dir / "responses.txt", "w", encoding="utf-8") as f:
+        for cat in results.categories:
+            f.write(f"{'=' * 80}\n")
+            f.write(f"CATEGORY: {cat.category}\n")
+            f.write(f"{'=' * 80}\n\n")
+            for i, r in enumerate(cat.results, 1):
+                f.write(f"--- [{i}/{cat.total}] {'PASS' if r.get('corrected') else 'FAIL'} ---\n")
+                f.write(f"PROMPT: {r.get('prompt', '')}\n\n")
+                f.write(f"THREAT LEVEL: {r.get('threat_level', '')}\n")
+                f.write(f"ADVERSARIAL PATTERN: {r.get('adversarial_pattern') or 'none'}\n")
+                f.write(f"ASSESSMENT: {r.get('assessment', '')}\n")
+                if r.get('revision_guidance'):
+                    f.write(f"REVISION GUIDANCE: {r['revision_guidance']}\n")
+                f.write(f"\nRESPONSE:\n{r.get('response', r.get('error', 'N/A'))}\n\n")
 
     # Copy source files
     for filename in _SOURCE_FILES:
