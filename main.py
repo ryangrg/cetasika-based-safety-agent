@@ -212,11 +212,12 @@ def main() -> None:
     client = anthropic.Anthropic(api_key=api_key)
 
     if args.test:
-        from adversarial import run_adversarial_suite, print_adversarial_report, log_adversarial_results
+        from adversarial import run_adversarial_suite, print_adversarial_report, log_adversarial_results, save_results_snapshot
         console.print("[bold]Running adversarial test suite...[/bold]")
         results = run_adversarial_suite(client)
         print_adversarial_report(results)
         log_adversarial_results(results)
+        save_results_snapshot(results)
     else:
         interactive_session(client)
 

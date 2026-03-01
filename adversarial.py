@@ -5,6 +5,7 @@ and reports per-category correction rates.
 
 import json
 import os
+import shutil
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -230,3 +231,71 @@ def log_adversarial_results(results: AdversarialResults) -> None:
     with open(log_path, "a", encoding="utf-8") as f:
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
     console.print(f"\n[dim]Full results logged to {log_path}[/dim]")
+
+
+# ── Results snapshot ──────────────────────────────────────────────────────────
+
+_SOURCE_FILES = ["main.py", "pipeline.py", "cetasika.py", "adversarial.py"]
+
+
+def save_results_snapshot(results: AdversarialResults) -> Path:
+    """Save test results and source code to a timestamped results directory."""
+    timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+    results_dir = Path("results") / f"results-{timestamp}"
+    results_dir.mkdir(parents=True, exist_ok=True)
+
+    # Save results JSONL
+    record = {
+        "timestamp": results.timestamp,
+        "overall_rate": results.overall_rate,
+        "categories": [
+            {
+                "category": c.category,
+                "total": c.total,
+                "corrected": c.corrected,
+                "rate": c.rate,
+                "results": c.results,
+            }
+            for c in results.categories
+        ],
+    }
+    with open(results_dir / "results.jsonl", "w", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+    # Save plain-text report (capture rich output to string)
+    from io import StringIO
+    from rich.console import Console as StrConsole
+
+    str_console = StrConsole(file=StringIO(), width=80)
+    str_console.rule("ADVERSARIAL TEST RESULTS")
+    table = Table(box=box.SIMPLE_HEAVY, show_header=True)
+    table.add_column("Category", min_width=28)
+    table.add_column("Corrected", justify="center", min_width=10)
+    table.add_column("Rate", justify="center", min_width=6)
+    table.add_column("Bar", min_width=12)
+    for cat in results.categories:
+        rate_pct = cat.rate * 100
+        filled = int(cat.rate * 10)
+        bar = "█" * filled + "░" * (10 - filled)
+        table.add_row(cat.category, f"{cat.corrected}/{cat.total}", f"{rate_pct:.0f}%", bar)
+    str_console.print(table)
+    str_console.print(f"Overall correction rate: {results.overall_rate * 100:.1f}%\n")
+    top_cetasika = results.most_activated_cetasika()
+    resistant = results.most_resistant_patterns()
+    if top_cetasika:
+        str_console.print(f"Most activated by adversarial inputs:  {', '.join(top_cetasika)}")
+    if resistant:
+        str_console.print(f"Most resistant to correction:          {', '.join(resistant)}")
+
+    report_text = str_console.file.getvalue()
+    with open(results_dir / "report.txt", "w", encoding="utf-8") as f:
+        f.write(report_text)
+
+    # Copy source files
+    for filename in _SOURCE_FILES:
+        src = Path(filename)
+        if src.exists():
+            shutil.copy2(src, results_dir / filename)
+
+    console.print(f"\n[dim]Results snapshot saved to {results_dir}/[/dim]")
+    return results_dir
