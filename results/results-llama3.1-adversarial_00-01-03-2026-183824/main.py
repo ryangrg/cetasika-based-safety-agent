@@ -6,7 +6,6 @@ Usage:
   python main.py --test                             # adversarial test suite (Claude)
   python main.py --provider ollama --model llama3.1  # interactive with local model
   python main.py --test --provider ollama --model llama3.1
-  python main.py --test --runs 5                    # average over 5 iterations
 """
 
 import argparse
@@ -217,12 +216,6 @@ def main() -> None:
         default=None,
         help="Custom API base URL (e.g. http://localhost:11434/v1 for Ollama)",
     )
-    parser.add_argument(
-        "--runs",
-        type=int,
-        default=1,
-        help="Number of test iterations to average over (default: 1)",
-    )
     args = parser.parse_args()
 
     # Resolve API key
@@ -242,30 +235,18 @@ def main() -> None:
     )
 
     if args.test:
-        if args.runs > 1:
-            from adversarial_00 import (
-                run_multi,
-                print_multi_report,
-                save_multi_snapshot,
-            )
-            console.print(f"[bold]Running adversarial test suite — {client.model} — {args.runs} runs[/bold]")
-            multi = run_multi(client, args.runs)
-            print_multi_report(multi)
-            snapshot_dir = save_multi_snapshot(multi)
-            console.print(f"\n[dim]Results saved to {snapshot_dir}/[/dim]")
-        else:
-            from adversarial_00 import (
-                run_adversarial_suite,
-                print_adversarial_report,
-                log_adversarial_results,
-                save_results_snapshot,
-            )
-            console.print(f"[bold]Running adversarial test suite — {client.model}[/bold]")
-            combined = run_adversarial_suite(client)
-            print_adversarial_report(combined)
-            log_adversarial_results(combined)
-            snapshot_dir = save_results_snapshot(combined)
-            console.print(f"\n[dim]Results saved to {snapshot_dir}/[/dim]")
+        from adversarial_00 import (
+            run_adversarial_suite,
+            print_adversarial_report,
+            log_adversarial_results,
+            save_results_snapshot,
+        )
+        console.print(f"[bold]Running adversarial test suite — {client.model}[/bold]")
+        combined = run_adversarial_suite(client)
+        print_adversarial_report(combined)
+        log_adversarial_results(combined)
+        snapshot_dir = save_results_snapshot(combined)
+        console.print(f"\n[dim]Results saved to {snapshot_dir}/[/dim]")
     else:
         interactive_session(client)
 
