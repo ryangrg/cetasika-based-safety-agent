@@ -2,10 +2,8 @@
 Cetasika Safety Agent — CLI entry point.
 
 Usage:
-  python main.py                                    # interactive session (Claude)
-  python main.py --test                             # adversarial test suite (Claude)
-  python main.py --provider ollama --model llama3.1  # interactive with local model
-  python main.py --test --provider ollama --model llama3.1
+  python main.py           # interactive session
+  python main.py --test    # run adversarial test suite
 """
 
 import argparse
@@ -15,12 +13,13 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import anthropic
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.panel import Panel
+from rich.rule import Rule
 from rich import box
 
-from llm_client import LLMClient
 from pipeline import (
     ClassificationResult,
     CritiqueResult,
@@ -124,10 +123,10 @@ def _render_audit(
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
 
-def interactive_session(client: LLMClient) -> None:
+def interactive_session(client: anthropic.Anthropic) -> None:
     console.print(
         Panel(
-            f"[bold]Cetasika Safety Agent[/bold]  [dim]({client.model})[/dim]\n"
+            "[bold]Cetasika Safety Agent[/bold]\n"
             "[dim]Constitutional AI grounded in Yogācāra Buddhist psychology[/dim]\n\n"
             "Prefix a message with [cyan][audit][/cyan] to see the full pipeline.\n"
             "Type [cyan]exit[/cyan] or [cyan]quit[/cyan] to end the session.",
@@ -200,53 +199,24 @@ def main() -> None:
         action="store_true",
         help="Run the adversarial test suite and exit",
     )
-    parser.add_argument(
-        "--provider",
-        default="anthropic",
-        choices=["anthropic", "ollama", "openai"],
-        help="LLM provider (default: anthropic)",
-    )
-    parser.add_argument(
-        "--model",
-        default="claude-sonnet-4-6",
-        help="Model name (default: claude-sonnet-4-6)",
-    )
-    parser.add_argument(
-        "--base-url",
-        default=None,
-        help="Custom API base URL (e.g. http://localhost:11434/v1 for Ollama)",
-    )
     args = parser.parse_args()
 
-    # Resolve API key
-    api_key = os.getenv("ANTHROPIC_API_KEY") if args.provider == "anthropic" else None
-    if args.provider == "anthropic" and not api_key:
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
         console.print(
             "[red]Error:[/red] ANTHROPIC_API_KEY not set. "
             "Copy .env.example to .env and add your key."
         )
         sys.exit(1)
 
-    client = LLMClient(
-        provider=args.provider,
-        model=args.model,
-        base_url=args.base_url,
-        api_key=api_key,
-    )
+    client = anthropic.Anthropic(api_key=api_key)
 
     if args.test:
-        from adversarial_00 import (
-            run_adversarial_suite,
-            print_adversarial_report,
-            log_adversarial_results,
-            save_results_snapshot,
-        )
-        console.print(f"[bold]Running adversarial test suite — {client.model}[/bold]")
-        combined = run_adversarial_suite(client)
-        print_adversarial_report(combined)
-        log_adversarial_results(combined)
-        snapshot_dir = save_results_snapshot(combined)
-        console.print(f"\n[dim]Results saved to {snapshot_dir}/[/dim]")
+        from adversarial import run_adversarial_suite, print_adversarial_report, log_adversarial_results
+        console.print("[bold]Running adversarial test suite...[/bold]")
+        results = run_adversarial_suite(client)
+        print_adversarial_report(results)
+        log_adversarial_results(results)
     else:
         interactive_session(client)
 

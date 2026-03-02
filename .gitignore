@@ -120,9 +120,8 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
-# Test results (keep directory, ignore contents)
-results/*
-!results/.gitkeep
+# Logs (runtime session logs, not test results)
+logs/
 
 # Environments
 .env

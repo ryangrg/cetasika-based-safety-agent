@@ -10,9 +10,11 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional
 
-from llm_client import LLMClient
+import anthropic
+
 from cetasika import ontology_summary
 
+MODEL = "claude-sonnet-4-6"
 HISTORY_WINDOW = 10  # turns passed to classifier for escalation detection
 
 _ONTOLOGY = ontology_summary()
@@ -97,7 +99,7 @@ Use Sanskrit names from the ontology above. Include both wholesome and unwholeso
 def classify_input(
     message: str,
     history: list[dict],
-    client: LLMClient,
+    client: anthropic.Anthropic,
 ) -> ClassificationResult:
     history_text = _history_to_text(history, HISTORY_WINDOW)
     user_content = f"""CONVERSATION HISTORY (for escalation detection):
@@ -106,12 +108,13 @@ def classify_input(
 CURRENT MESSAGE TO CLASSIFY:
 {message}"""
 
-    raw = client.chat(
+    response = client.messages.create(
+        model=MODEL,
+        max_tokens=512,
         system=_CLASSIFY_SYSTEM,
         messages=[{"role": "user", "content": user_content}],
-        max_tokens=512,
     )
-    data = _extract_json(raw)
+    data = _extract_json(response.content[0].text)
     return ClassificationResult(
         activated_cetasika=data.get("activated_cetasika", []),
         adversarial_pattern=data.get("adversarial_pattern"),
@@ -148,7 +151,7 @@ def constitutional_critique(
     message: str,
     proposed_response: str,
     classification: ClassificationResult,
-    client: LLMClient,
+    client: anthropic.Anthropic,
 ) -> CritiqueResult:
     user_content = f"""ORIGINAL USER MESSAGE:
 {message}
@@ -161,12 +164,13 @@ CLASSIFICATION RESULT:
 PROPOSED RESPONSE TO AUDIT:
 {proposed_response}"""
 
-    raw = client.chat(
+    response = client.messages.create(
+        model=MODEL,
+        max_tokens=512,
         system=_CRITIQUE_SYSTEM,
         messages=[{"role": "user", "content": user_content}],
-        max_tokens=512,
     )
-    data = _extract_json(raw)
+    data = _extract_json(response.content[0].text)
     return CritiqueResult(
         assessment=data.get("assessment", "WHOLESOME"),
         violated_checks=data.get("violated_checks", []),
@@ -207,7 +211,7 @@ def generate_final(
     message: str,
     critique: CritiqueResult,
     history: list[dict],
-    client: LLMClient,
+    client: anthropic.Anthropic,
 ) -> FinalResult:
     messages = list(history)
 
@@ -224,11 +228,13 @@ Your response must address the above revision guidance."""
     user_content = f"""{message}{guidance_block}"""
     messages.append({"role": "user", "content": user_content})
 
-    raw = client.chat(
+    response = client.messages.create(
+        model=MODEL,
+        max_tokens=1024,
         system=_GENERATE_SYSTEM,
         messages=messages,
-        max_tokens=1024,
     )
+    raw = response.content[0].text
 
     # Extract metadata block
     meta_match = re.search(r'<metadata>\s*([\s\S]*?)\s*</metadata>', raw)
@@ -265,7 +271,7 @@ class PipelineResult:
 def run_pipeline(
     message: str,
     history: list[dict],
-    client: LLMClient,
+    client: anthropic.Anthropic,
     proposed_response: Optional[str] = None,
 ) -> PipelineResult:
     """Run the full 3-step pipeline. Returns all intermediate results."""
