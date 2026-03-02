@@ -1,6 +1,6 @@
 # Cetasika Safety Agent
 
-In the rough draft of a constitutional AI safety framework grounded in the 52 cetasika (mental formations) from Yogācāra Buddhist psychology. Itterating through building better experimental designs. Every response passes through a three-step pipeline — classify, critique, generate — ensuring the agent operates from the wholesome (kuśala) set and never from the root or secondary afflictions.
+In the rough draft of a constitutional AI safety framework grounded in the 52 cetasika (mental formations) from Yogācāra Buddhist psychology. Itterating through, figuring things out and building better experimental designs. Every response passes through a three-step pipeline — classify, critique, generate — ensuring the agent operates from the wholesome (kuśala) set and never from the root or secondary afflictions.
 
 ---
 
